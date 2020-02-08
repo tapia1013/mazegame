@@ -1,20 +1,24 @@
-const { Engine, Render, Runner, World, Bodies } = Matter;
+const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
 // config variable
-const cells = 20;
-const width = 600;
-const height = 600;
+const cellsHorizontal = 40;
+const cellsVertical = 40;
+const width = window.innerWidth;
+const height = window.innerHeight;
 
 // Every cell we create is going to be this many units x y
-const unitLength = width / cells;
+const unitLengthX = width / cellsHorizontal;
+const unitLengthY = height / cellsVertical;
 
 const engine = Engine.create();
+// Disable Gravity
+engine.world.gravity.y = 0;
 const { world } = engine;
 const render = Render.create({
   element: document.body,
   engine: engine,
   options: {
-    wireframes: true,
+    wireframes: false,
     width: width,
     height: height
   }
@@ -54,34 +58,24 @@ const shuffle = (arr) => {
   return arr;
 }
 
-// const grid = [];
-// for (let i = 0; i < 3; i++) {
-//   grid.push([]);
-//   for (let j = 0; j < 3; j++) {
-//     // start starting values of false
-//     grid[i].push(false);
-//   }
-// }
-// console.log(grid)
-
 
 // Better code than above with .map()... it makes a copy of arry... throw away the value of null and return new arr with 3 elements of false
-const grid = Array(cells)
+const grid = Array(cellsVertical)
   .fill(null)
-  .map(() => Array(cells).fill(false))
+  .map(() => Array(cellsHorizontal).fill(false))
 
-const verticals = Array(cells)
+const verticals = Array(cellsVertical)
   .fill(null)
-  .map(() => Array(cells - 1).fill(false));
+  .map(() => Array(cellsHorizontal - 1).fill(false));
 
-const horizontals = Array(cells - 1)
+const horizontals = Array(cellsVertical - 1)
   .fill(null)
-  .map(() => Array(cells).fill(false))
+  .map(() => Array(cellsHorizontal).fill(false))
 // console.log(verticals);
 
 
-const startRow = Math.floor(Math.random() * cells);
-const startColumn = Math.floor(Math.random() * cells);
+const startRow = Math.floor(Math.random() * cellsVertical);
+const startColumn = Math.floor(Math.random() * cellsHorizontal);
 // console.log(startRow, startColumn);
 
 const stepThroughCell = (row, column) => {
@@ -106,7 +100,10 @@ const stepThroughCell = (row, column) => {
   for (let neighbor of neighbors) {
     const [nextRow, nextColumn, direction] = neighbor;
     // Check to see if that neighbor is out of bounds
-    if (nextRow < 0 || nextRow >= cells || nextColumn < 0 || nextColumn >= cells) {
+    if (nextRow < 0 ||
+      nextRow >= cellsVertical ||
+      nextColumn < 0 ||
+      nextColumn >= cellsHorizontal) {
       continue;
     }
 
@@ -148,12 +145,16 @@ horizontals.forEach((row, rowIndex) => {
 
     // if else we do want to create/draw a wall
     const wall = Bodies.rectangle(
-      columnIndex * unitLength + unitLength / 2,
-      rowIndex * unitLength + unitLength,
-      unitLength,
+      columnIndex * unitLengthX + unitLengthX / 2,
+      rowIndex * unitLengthY + unitLengthY,
+      unitLengthX,
       5,
       {
-        isStatic: true
+        label: 'wall',
+        isStatic: true,
+        render: {
+          fillStyle: 'red'
+        }
       }
     );
     World.add(world, wall)
@@ -167,14 +168,18 @@ verticals.forEach((row, rowIndex) => {
     }
 
     const wall = Bodies.rectangle(
-      columnIndex * unitLength + unitLength,
-      rowIndex * unitLength + unitLength / 2,
+      columnIndex * unitLengthX + unitLengthX,
+      rowIndex * unitLengthY + unitLengthY / 2,
       // width of wall
       5,
       // height of wall
-      unitLength,
+      unitLengthY,
       {
-        isStatic: true
+        label: 'wall',
+        isStatic: true,
+        render: {
+          fillStyle: 'red'
+        }
       }
     );
     World.add(world, wall)
@@ -184,43 +189,86 @@ verticals.forEach((row, rowIndex) => {
 // Goal
 const goal = Bodies.rectangle(
   // X
-  width - unitLength / 2,
+  width - unitLengthX / 2,
   // Y
-  height - unitLength / 2,
+  height - unitLengthY / 2,
   // Scale
-  unitLength * .7,
-  unitLength * .7,
+  unitLengthX * .7,
+  unitLengthY * .7,
   {
-    isStatic: true
+    label: 'goal',
+    isStatic: true,
+    render: {
+      fillStyle: 'green'
+    }
   }
 );
 World.add(world, goal)
 
 
 // Ball
+const ballRadius = Math.min(unitLengthX, unitLengthY) / 4;
 const ball = Bodies.circle(
   // scale ball to unitLength
-  unitLength / 2,
-  unitLength / 2,
-  unitLength / 2
+  unitLengthX / 2,
+  unitLengthY / 2,
+  ballRadius,
+  {
+    label: 'ball',
+    render: {
+      fillStyle: 'blue'
+    }
+  }
 );
 World.add(world, ball);
 
 
 document.addEventListener('keydown', event => {
+  // get ball velocity
+  const { x, y } = ball.velocity;
+  // console.log(x, y);
+
+  // Up / W key
   if (event.keyCode === 87) {
-    console.log('move ball up');
+    Body.setVelocity(ball, { x: x, y: y - 5 })
   }
+  // Right / D key
   if (event.keyCode === 68) {
-    console.log('move ball right');
+    Body.setVelocity(ball, { x: x + 5, y: y })
   }
+  // Down / S key
   if (event.keyCode === 83) {
-    console.log('move ball down');
+    Body.setVelocity(ball, { x: x, y: y + 5 })
   }
+  // Left / A key
   if (event.keyCode === 65) {
-    console.log('move ball left');
+    Body.setVelocity(ball, { x: x - 5, y: y })
   }
-})
+});
+
+
+// Win Condition
+Events.on(engine, 'collisionStart', event => {
+  event.pairs.forEach((collision) => {
+    const labels = ['ball', 'goal'];
+
+    if (labels.includes(collision.bodyA.label) && labels.includes(collision.bodyB.label)) {
+      // remove html hidden if player wins
+      document.querySelector('.winner').classList.remove('hidden')
+
+      // drop shapes to bottom
+      world.gravity.y = 1;
+
+      // loop over shapes in world and remove static flag
+      world.bodies.forEach(body => {
+        if (body.label === 'wall') {
+          // get body and set to false
+          Body.setStatic(body, false)
+        }
+      });
+    }
+  });
+});
 
 
 
