@@ -216,7 +216,7 @@ const ball = Bodies.circle(
   {
     label: 'ball',
     render: {
-      fillStyle: 'blue'
+      fillStyle: 'aqua'
     }
   }
 );
